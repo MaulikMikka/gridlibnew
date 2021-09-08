@@ -1,14 +1,16 @@
 plugins {
     id 'com.android.library'
     id 'kotlin-android'
+    id 'maven-publish'
 
 
 }
-apply from: file('publish.gradle')
+def LIB_GROUP_ID = 'com.grid.lib'
+def LIB_ARTIFACT_ID = 'gridlib'
+def LIB_VERSION = '1.0.11'
 
 android {
     compileSdk 30
-
     defaultConfig {
         minSdk 21
         targetSdk 30
@@ -33,7 +35,45 @@ android {
         jvmTarget = '1.8'
     }
 }
+def githubProperties = new Properties()
+githubProperties.load(new FileInputStream(rootProject.file("github.properties")))
 
+publishing {
+    repositories {
+        maven {
+            name = "GithubPackages"
+            url = uri("https://maven.pkg.github.com/MaulikMikka/gridlibnew")
+            credentials {
+                username = githubProperties['gpr.usr']
+                password = githubProperties['gpr.key']
+            }
+        }
+        maven {
+            name = 'CustomMavenRepo'
+            url = "file://${buildDir}/repo"
+        }
+    }
+    publications {
+        bar(MavenPublication) {
+            groupId LIB_GROUP_ID
+            artifactId LIB_ARTIFACT_ID
+            version LIB_VERSION
+            artifact("$buildDir/outputs/aar/${LIB_ARTIFACT_ID}-release.aar")
+
+            pom.withXml {
+                def dependenciesNode = asNode().appendNode('dependencies')
+
+                //Iterate over the compile dependencies (we don't want the test ones), adding a <dependency> node for each
+                configurations.api.allDependencies.each {
+                    def dependencyNode = dependenciesNode.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', it.group)
+                    dependencyNode.appendNode('artifactId', it.name)
+                    dependencyNode.appendNode('version', it.version)
+                }
+            }
+        }
+    }
+}
 
 dependencies {
 
